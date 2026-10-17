@@ -90,6 +90,14 @@ describe("ConditionPicker", () => {
 		expect(ids(play([AND, DOWN, OR, DOWN, ENTER]).result)).toEqual([["A", "B"], ["C"]]);
 	});
 
+	test("Enter on the goal that just closed the group with | finishes without re-adding it", () => {
+		expect(ids(play([AND, DOWN, OR, ENTER]).result)).toEqual([["A", "B"]]);
+	});
+
+	test("Enter on a later goal after | still opens the next group", () => {
+		expect(ids(play([AND, DOWN, OR, DOWN, ENTER]).result)).toEqual([["A", "B"], ["C"]]);
+	});
+
 	test("| on a goal already in the open group closes the group at the last pick", () => {
 		expect(ids(play([AND, DOWN, AND, UP, OR, DOWN, DOWN, ENTER]).result)).toEqual([
 			["A", "B"],

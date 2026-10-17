@@ -4,7 +4,6 @@ const ESC = String.fromCharCode(0x1b)
 const BEL = String.fromCharCode(0x07)
 const ESCAPE_SOURCE = `${ESC}(?:\\[[0-?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)|[()][0-2A-Z])`
 const ESCAPE = new RegExp(ESCAPE_SOURCE, "y")
-const ESCAPES = new RegExp(ESCAPE_SOURCE, "g")
 
 function graphemeWidth(value: string): number {
 	const code = value.codePointAt(0) ?? 0
@@ -69,14 +68,6 @@ export function padCells(s: string, width: number): string {
 	if (width <= 0) return ""
 	const fitted = fitCells(s, width)
 	return fitted + " ".repeat(Math.max(0, width - displayWidth(fitted)))
-}
-
-export function plainText(s: string): string {
-	return s
-		.replace(ESCAPES, "")
-		.replace(/[\r\n\t]/g, " ")
-		.replace(/ +/g, " ")
-		.trim()
 }
 
 export function firstLine(text: string, max = 40): string {

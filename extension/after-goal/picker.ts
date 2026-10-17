@@ -128,7 +128,11 @@ export class ConditionPicker {
 	}
 
 	private confirm(): void {
-		if (this.cursor < this.goals.length && !this.openGroup().includes(this.cursor)) {
+		// The last pick closed its group with `|`: Enter on that same row only finishes.
+		// Re-adding it would read `(A & B) | B`, which is never what the user meant.
+		const last = this.picks.at(-1);
+		const justClosed = last !== undefined && last.op === "|" && last.index === this.cursor;
+		if (this.cursor < this.goals.length && !this.openGroup().includes(this.cursor) && !justClosed) {
 			this.picks.push({ index: this.cursor });
 		}
 		this.finish();
@@ -154,7 +158,7 @@ export class ConditionPicker {
 		return parts.join("");
 	}
 
-	/** The picked row keeps the first group color of its earliest group, so the cursor reads as colored. */
+	/** Every group holding the row gets its own number badge in that group's color, left to right. */
 	private badges(index: number): string {
 		const numbers = this.derived()
 			.map((group, position) => (group.includes(index) ? position : undefined))
