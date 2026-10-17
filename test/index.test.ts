@@ -227,6 +227,11 @@ function status(host: Host): string | undefined {
 	return host.statusMap.get(STATUS_KEY);
 }
 
+/** Drains the microtasks a fire-and-forget delivery queued. The depth is bounded, so no waiting. */
+async function settle(depth = 40): Promise<void> {
+	for (let i = 0; i < depth; i++) await Promise.resolve();
+}
+
 /** Schedules a reservation through the real picker: `keys` drive ConditionPicker, then Enter/Esc confirms. */
 async function schedule(host: Host, keys: string[], prompt = host.editorText): Promise<void> {
 	host.pickerKeys = keys;
@@ -736,5 +741,208 @@ describe("held delivery", () => {
 		await fire(host, "agent_settled", host.ctx);
 		await tick(3);
 		expect(host.sent).toHaveLength(0);
+	});
+});
+
+describe("delivery error boundaries", () => {
+	test("(b1) a session_start without a session id disarms and drops the previous session's job", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "이전 세션 프롬프트" });
+		await start(host, env);
+		await schedule(host, ["\r"]);
+		expect(loadStore(env.storeDir, SELF).job).not.toBeNull();
+
+		const idless = { ...host.ctx, sessionManager: { getSessionId: () => undefined } };
+		await fire(host, "session_start", idless);
+
+		complete(env, a.goalFile);
+		await tick(5);
+		await settle();
+		expect(host.sent).toHaveLength(0);
+		expect(jest.getTimerCount()).toBe(0);
+	});
+
+	test("(b2a) an Orca send that throws falls back to sendUserMessage with the delivery text", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "/skill 지시" });
+		await start(host, env);
+
+		const previous = process.env.ORCA_PANE_KEY;
+		process.env.ORCA_PANE_KEY = "7:3";
+		try {
+			host.pi.exec = mock(async () => {
+				throw new Error("spawn orca ENOENT");
+			});
+			await schedule(host, ["\r"], "/skill 지시");
+			complete(env, a.goalFile);
+			await tick(2);
+			await settle();
+
+			expect(host.pi.sendUserMessage).toHaveBeenCalledTimes(1);
+			expect(host.pi.sendUserMessage.mock.calls[0][0]).toBe("/skill 지시\n\n[after-goal] 예약 실행 사유: qa-a goal 완료");
+			expect(host.notifies.some((n: { message: string }) => n.message.includes("터미널 입력 실패(spawn orca ENOENT)"))).toBe(true);
+			expect(loadStore(env.storeDir, SELF).job).toBeNull();
+		} finally {
+			if (previous === undefined) delete process.env.ORCA_PANE_KEY;
+			else process.env.ORCA_PANE_KEY = previous;
+		}
+	});
+
+	test("(b2b) a throwing sendUserMessage keeps the fired job in the store for the next start", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "실패 후 재전달" });
+		await start(host, env);
+		await schedule(host, ["\r"]);
+
+		host.pi.sendUserMessage = mock(() => {
+			throw new Error("sendUserMessage boom");
+		});
+		complete(env, a.goalFile);
+		await tick(2);
+		await settle();
+
+		expect(host.sent).toHaveLength(0);
+		const stored = loadStore(env.storeDir, SELF).job!;
+		expect(stored.fired?.reason).toBe("qa-a goal 완료");
+		expect(host.notifies.some((n: { message: string }) => n.message === "예약 전달 실패: sendUserMessage boom")).toBe(true);
+
+		// a later start with a working sendUserMessage delivers the stored fired job exactly once
+		host.pi.sendUserMessage = mock((text: string) => {
+			host.sent.push(text);
+		});
+		await fire(host, "session_start", host.ctx);
+		await fire(host, "agent_settled", host.ctx);
+		await settle();
+		expect(host.sent).toHaveLength(1);
+		expect(host.sent[0]).toContain("실패 후 재전달");
+		expect(loadStore(env.storeDir, SELF).job).toBeNull();
+		await tick(2);
+		expect(host.sent).toHaveLength(1);
+	});
+
+	test("(b2c) session_shutdown while an Orca send is awaiting neither throws nor loses the fallback", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "/skill 지시" });
+		await start(host, env);
+
+		const previous = process.env.ORCA_PANE_KEY;
+		process.env.ORCA_PANE_KEY = "7:3";
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+		try {
+			let release = () => {};
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			host.pi.exec = mock(async (_cmd: string, args: string[]) => {
+				if (args[1] === "list") return { code: 0, stdout: JSON.stringify({ result: { terminals: [{ tabId: 7, leafId: 3, handle: "h-1" }] } }) };
+				await gate;
+				return { code: 1, stderr: "terminal send 실패" };
+			});
+			await schedule(host, ["\r"], "/skill 지시");
+			complete(env, a.goalFile);
+			await tick(2);
+			await settle(5);
+
+			await fire(host, "session_shutdown", host.ctx);
+			release();
+			await settle();
+
+			// the shutdown must not turn the send failure into a throw before the fallback
+			expect(host.sent).toHaveLength(1);
+			expect(host.sent[0]).toContain("/skill 지시");
+			expect(unhandled).toHaveLength(0);
+		} finally {
+			process.off("unhandledRejection", onUnhandled);
+			if (previous === undefined) delete process.env.ORCA_PANE_KEY;
+			else process.env.ORCA_PANE_KEY = previous;
+		}
+	});
+
+	test("(b2d) a session switch during an Orca send returns a failed delivery to its own session, never the new one", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "/skill OLD" });
+		await start(host, env);
+
+		const previous = process.env.ORCA_PANE_KEY;
+		process.env.ORCA_PANE_KEY = "7:3";
+		try {
+			let release = () => {};
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			host.pi.exec = mock(async (_cmd: string, args: string[]) => {
+				if (args[1] === "list") return { code: 0, stdout: JSON.stringify({ result: { terminals: [{ tabId: 7, leafId: 3, handle: "h-1" }] } }) };
+				await gate;
+				return { code: 1, stderr: "terminal send 실패" };
+			});
+			await schedule(host, ["\r"], "/skill OLD");
+			complete(env, a.goalFile);
+			await tick(2);
+			await settle(5);
+
+			await fire(host, "session_start", { ...host.ctx, sessionManager: { getSessionId: () => "other" } });
+			host.pi.sendUserMessage = mock(() => {
+				throw new Error("host gone");
+			});
+			release();
+			await settle();
+
+			expect(loadStore(env.storeDir, "other").job).toBeNull();
+			const back = loadStore(env.storeDir, SELF).job!;
+			expect(back.prompt).toBe("/skill OLD");
+			expect(back.fired?.reason).toBe("qa-a goal 완료");
+			expect(host.notifies.some((n: { message: string }) => n.message === "예약 실행: qa-a goal 완료")).toBe(false);
+		} finally {
+			if (previous === undefined) delete process.env.ORCA_PANE_KEY;
+			else process.env.ORCA_PANE_KEY = previous;
+		}
+	});
+
+	test("(b3) a failing save still delivers the prompt once and throws nothing", async () => {
+		const env = makeEnv();
+		const host = newHost({ editorText: "실패 저장 프롬프트", inputText: "1m" });
+		await start(host, env);
+		await schedule(host, ["\x1b[B", "\r"]);
+		expect(typeof loadStore(env.storeDir, SELF).job!.at).toBe("number");
+
+		// the store path is now a regular file, so every saveStore throws
+		rmSync(env.storeDir, { recursive: true, force: true });
+		writeFileSync(env.storeDir, "occupied");
+
+		jest.advanceTimersByTime(61_000);
+		await settle();
+		expect(host.sent).toHaveLength(1);
+		expect(host.sent[0]).toContain("실패 저장 프롬프트");
+		await tick(2);
+		expect(host.sent).toHaveLength(1);
+	});
+
+	test("(f1) a future time-only reservation fires when fake timers pass its at", async () => {
+		const env = makeEnv();
+		const host = newHost({ editorText: "미래 시간 프롬프트", inputText: "2m" });
+		await start(host, env);
+		await schedule(host, ["\x1b[B", "\r"]);
+		const scheduled = loadStore(env.storeDir, SELF).job!;
+		expect(scheduled.groups).toEqual([]);
+		expect(scheduled.at! - Date.now()).toBe(120_000);
+		expect(host.sent).toHaveLength(0);
+
+		jest.advanceTimersByTime(60_000);
+		await settle();
+		expect(host.sent).toHaveLength(0);
+
+		jest.advanceTimersByTime(61_000);
+		await settle();
+		expect(host.sent).toHaveLength(1);
+		expect(host.sent[0]).toContain("미래 시간 프롬프트");
+		expect(host.sent[0]).toMatch(/예약 실행 사유: 예약 시간 \d{2}:\d{2} 도달/);
+		expect(loadStore(env.storeDir, SELF).job).toBeNull();
 	});
 });

@@ -115,8 +115,12 @@ export function createAfterGoal(options: Options) {
 				trigger(`예약 시간 ${formatClock(current.at!)} 도달`);
 				return;
 			}
-			// setTimeout overflows above ~24.8 days; re-arm in steps.
-			atTimer = setTimeout(() => armTime(), Math.min(delay, 2 ** 31 - 1));
+			// setTimeout overflows above ~24.8 days; re-arm in steps. A throw must never escape the timer.
+			atTimer = setTimeout(() => {
+				try {
+					armTime();
+				} catch {}
+			}, Math.min(delay, 2 ** 31 - 1));
 		}
 
 		function arm() {
@@ -136,7 +140,10 @@ export function createAfterGoal(options: Options) {
 			if (!job || job.fired) return;
 			disarm();
 			job.fired = { reason, at: Date.now() };
-			save();
+			// A failed save keeps the fired slot in memory: only restart safety is lost, not the delivery.
+			try {
+				save();
+			} catch {}
 			updateStatus();
 			void flush();
 		}
@@ -186,43 +193,79 @@ export function createAfterGoal(options: Options) {
 			return true;
 		}
 
+		function errorText(error: unknown): string {
+			return error instanceof Error ? error.message : String(error);
+		}
+
+		// ctx can disappear between an await and the notify that follows it (shutdown); a notify never throws.
+		function notify(text: string, level: string) {
+			try {
+				ctx?.ui?.notify?.(text, level);
+			} catch {}
+		}
+
 		async function flush() {
 			if (flushing) return;
 			flushing = true;
 			try {
-				while (true) {
-					const current = job;
-					if (!current || !current.fired) return;
-					if (!canDeliver()) {
-						if (!retryTimer) {
-							retryTimer = setTimeout(() => {
-								retryTimer = undefined;
-								void flush();
-							}, retryMs);
-						}
-						return;
+				const current = job;
+				if (!current || !current.fired) return;
+				if (!canDeliver()) {
+					if (!retryTimer) {
+						retryTimer = setTimeout(() => {
+							retryTimer = undefined;
+							void flush();
+						}, retryMs);
 					}
-					heldNoticeShown = false;
-					const reason = current.fired.reason;
-					job = null;
-					save();
-					updateStatus();
-					if (current.prompt.trimStart().startsWith("/")) {
-						const failure = await sendViaOrca(terminalText(current, reason));
-						if (failure === undefined) {
-							ctx.ui?.notify?.(`예약 실행: ${reason}`, "info");
-							return;
-						}
-						if (failure === "ambiguous") {
-							ctx.ui?.notify?.(`터미널 입력 응답이 없어 다시 보내지 않았습니다: ${reason}`, "warning");
-							return;
-						}
-						ctx.ui?.notify?.(`터미널 입력 실패(${failure}), 확장 메시지로 보냅니다. 사용자 전용 스킬 게이트는 열리지 않을 수 있습니다`, "warning");
-					}
-					ctx.ui?.notify?.(`예약 실행: ${reason}`, "info");
-					pi.sendUserMessage(deliveryText(current, reason), { expandPromptTemplates: true });
 					return;
 				}
+				heldNoticeShown = false;
+				const reason = current.fired.reason;
+				// session_start may swap selfId and job during the Orca await below
+				const owner = selfId;
+				job = null;
+				// Clear first, then persist: at most once. A failing save only costs restart safety.
+				try {
+					save();
+				} catch {}
+				updateStatus();
+				if (current.prompt.trimStart().startsWith("/")) {
+					let failure: string | undefined;
+					try {
+						failure = await sendViaOrca(terminalText(current, reason));
+					} catch (error) {
+						// a thrown send (spawn ENOENT, an unwritable prompt file) is the same as a reported failure
+						failure = errorText(error);
+					}
+					if (failure === undefined) {
+						notify(`예약 실행: ${reason}`, "info");
+						return;
+					}
+					if (failure === "ambiguous") {
+						notify(`터미널 입력 응답이 없어 다시 보내지 않았습니다: ${reason}`, "warning");
+						return;
+					}
+					notify(`터미널 입력 실패(${failure}), 확장 메시지로 보냅니다. 사용자 전용 스킬 게이트는 열리지 않을 수 있습니다`, "warning");
+				}
+				try {
+					pi.sendUserMessage(deliveryText(current, reason), { expandPromptTemplates: true });
+				} catch (error) {
+					// Nothing was delivered: the fired job goes back to its own session's slot, so that session's next start
+					// delivers it once. It never lands in another session or over a reservation made meanwhile.
+					try {
+						if (selfId === owner && job === null) {
+							job = current;
+							save();
+						} else if (owner && selfId !== owner) {
+							saveStore(options.storeDir, owner, current);
+						}
+					} catch {}
+					notify(`예약 전달 실패: ${errorText(error)}`, "warning");
+					return;
+				}
+				notify(`예약 실행: ${reason}`, "info");
+			} catch {
+				// flush is fire-and-forget; a throw here would surface as an unhandled rejection
 			} finally {
 				flushing = false;
 			}
@@ -317,13 +360,17 @@ export function createAfterGoal(options: Options) {
 		pi.on("session_start", async (_event: unknown, startCtx: any) => {
 			ctx = startCtx;
 			selfId = startCtx.sessionManager?.getSessionId?.();
-			if (!selfId) return;
 			// A session switch must never leave the previous job's timers or footer alive.
 			disarm();
 			if (retryTimer) clearTimeout(retryTimer);
 			retryTimer = undefined;
 			snaps = new Map();
 			lastStatus = undefined;
+			if (!selfId) {
+				// No store to load: the previous session's job must not stay armed or be delivered here.
+				job = null;
+				return;
+			}
 			const loaded = loadStore(options.storeDir, selfId);
 			job = loaded.job;
 			if (loaded.extraCount) ctx.ui?.notify?.(`이전 예약 ${loaded.extraCount}건은 ${loaded.extraFile}에 옮겼습니다`, "warning");
