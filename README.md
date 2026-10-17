@@ -35,7 +35,7 @@ The time row takes the usual forms: `90m`, `2h`, `1h30m`, `2시간`, `23:30`. A 
 Then the prompt editor opens, a summary is shown, and you confirm.
 
 - `/after now` runs the reservation immediately, whatever its conditions say, and delivers it through the normal gate.
-- `/after cancel` cancels the reservation after a confirmation.
+- `/after cancel` cancels the reservation after a confirmation. The old `/after list` does the same.
 - One reservation per session. `/after` again shows the current one and asks whether to replace it; the prompt editor starts from the old prompt.
 
 `/after` works in a saved session.
