@@ -17,6 +17,8 @@ export type Job = {
 	/** OR of AND groups; empty when the reservation waits for a time only. */
 	groups: GoalCond[][];
 	at?: number;
+	/** Set when the condition was met; the job keeps its slot until delivery starts. */
+	fired?: { reason: string; at: number };
 };
 
 export type StoreFile = { version: 2; job: Job | null };
