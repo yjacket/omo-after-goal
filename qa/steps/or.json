@@ -1,0 +1,34 @@
+[
+	{"wait": "[Extensions]"},
+	{"wait": "Welcome to OmO"},
+
+	{"send": "/after"},
+	{"waitNew": "after"},
+	{"send": "\r"},
+	{"waitNew": "대기할 goal"},
+
+	{"send": "|"},
+	{"waitNew": "| ▢"},
+	{"send": "\u001b[B"},
+	{"waitNew": "▸ qa-b"},
+	{"send": "\r"},
+
+	{"waitNew": "시간"},
+	{"send": "\r"},
+	{"waitNew": "실행할 프롬프트"},
+
+	{"send": "QA-PROMPT-OR"},
+	{"waitNew": "QA-PROMPT-OR"},
+	{"send": "\r"},
+	{"waitNew": "예약"},
+
+	{"send": "\r"},
+	{"waitNew": "qa-a 남은 2 | qa-b 남은 1"},
+	{"shot": "armed"},
+	{"expect": "qa-a 남은 2 | qa-b 남은 1"},
+
+	{"exec": ["bun", "qa/fake-sessions.mjs", "finish", "{agentDir}", "b"]},
+	{"waitNew": "QA-PROMPT-OR"},
+	{"shot": "fired"},
+	{"expect": "예약 실행 사유: qa-b goal 완료"}
+]

@@ -1,0 +1,9 @@
+[
+	{"wait": "[Extensions]"},
+	{"wait": "Welcome to OmO"},
+
+	{"send": "/after"},
+	{"waitNew": "after"},
+	{"send": "\r"},
+	{"shot": "smoke"}
+]

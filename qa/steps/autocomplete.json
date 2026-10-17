@@ -1,0 +1,7 @@
+[
+	{"wait": "[Extensions]"},
+	{"wait": "Welcome to OmO"},
+	{"send": "/aft"},
+	{"waitNew": "/after"},
+	{"shot": "autocomplete"}
+]
