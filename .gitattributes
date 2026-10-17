@@ -1,0 +1,2 @@
+# keep LF on every checkout (the installed extension stays byte-identical)
+* text=auto eol=lf

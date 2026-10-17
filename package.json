@@ -1,0 +1,19 @@
+{
+	"name": "omo-after-goal",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "OMO/Senpi extension: run a prompt in this session when other sessions' goals end (all with &, any with |) or at a set time.",
+	"pi": {
+		"extensions": [
+			"extension/after-goal/index.ts"
+		]
+	},
+	"scripts": {
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"engines": {
+		"bun": ">=1.4"
+	}
+}
