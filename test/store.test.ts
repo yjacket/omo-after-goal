@@ -86,6 +86,55 @@ describe("v2 round trip", () => {
 		writeFileSync(storePath(dir, SESSION), JSON.stringify({ version: 2, job: { id: 7, prompt: "x", groups: [] } }));
 		expect(loadStore(dir, SESSION).job).toBeNull();
 	});
+
+	test("a job with every optional field round trips", () => {
+		const dir = storeDir();
+		const full = job({
+			at: 1792183200000,
+			fired: { reason: "searchad goal 종료", at: 1792183199999 },
+			groups: [[cond({ endedAt: 1792183199998, endReason: "searchad goal 종료" })]],
+		});
+		saveStore(dir, SESSION, full);
+		expect(loadStore(dir, SESSION).job).toEqual(full);
+	});
+});
+
+describe("shape-corrupt v2 jobs read as null", () => {
+	function loadRaw(value: unknown): { job: unknown; dir: string; bytes: string } {
+		const dir = storeDir();
+		const bytes = JSON.stringify({ version: 2, job: value });
+		writeFileSync(storePath(dir, SESSION), bytes);
+		return { job: loadStore(dir, SESSION).job, dir, bytes };
+	}
+
+	const base = () => job();
+
+	test("groups is not an array of arrays", () => {
+		const { job: loaded, dir, bytes } = loadRaw({ ...base(), groups: ["x"] });
+		expect(loaded).toBeNull();
+		expect(readFileSync(storePath(dir, SESSION), "utf8")).toBe(bytes);
+	});
+
+	test("a group holding a non-object cond", () => {
+		expect(loadRaw({ ...base(), groups: [[null]] }).job).toBeNull();
+	});
+
+	test("a cond missing goalFile", () => {
+		const { goalFile: _goalFile, ...noGoalFile } = cond();
+		expect(loadRaw({ ...base(), groups: [[noGoalFile]] }).job).toBeNull();
+	});
+
+	test("a boolean fired marker", () => {
+		expect(loadRaw({ ...base(), fired: true }).job).toBeNull();
+	});
+
+	test("a fired marker with mistyped fields", () => {
+		expect(loadRaw({ ...base(), fired: { reason: 1, at: 2 } }).job).toBeNull();
+	});
+
+	test("a non-numeric at", () => {
+		expect(loadRaw({ ...base(), at: "soon" }).job).toBeNull();
+	});
 });
 
 describe("v1 migration", () => {

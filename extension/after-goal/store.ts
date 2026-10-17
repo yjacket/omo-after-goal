@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Job, StoreFile } from "./types.ts";
+import type { GoalCond, Job, StoreFile } from "./types.ts";
 
 export type LoadedStore = { job: Job | null; extraFile?: string; extraCount?: number };
 
@@ -47,10 +47,29 @@ export function loadStore(storeDir: string, sessionId: string): LoadedStore {
 	return { job: validJob(file.job) };
 }
 
+/** A goal condition must carry all four strings, with only `endedAt`/`endReason` optional and typed. */
+function isCond(value: unknown): boolean {
+	if (typeof value !== "object" || value === null) return false;
+	const cond = value as Partial<GoalCond>;
+	if (typeof cond.sessionId !== "string" || typeof cond.goalId !== "string" || typeof cond.goalFile !== "string" || typeof cond.label !== "string") return false;
+	if (cond.endedAt !== undefined && typeof cond.endedAt !== "number") return false;
+	if (cond.endReason !== undefined && typeof cond.endReason !== "string") return false;
+	return true;
+}
+
+/** A shape-corrupt job is rejected wholesale, so it reads as `{job: null}` like a missing store. */
 function validJob(value: unknown): Job | null {
 	if (typeof value !== "object" || value === null) return null;
 	const job = value as Partial<Job>;
 	if (typeof job.id !== "string" || typeof job.prompt !== "string" || !Array.isArray(job.groups)) return null;
+	for (const group of job.groups) {
+		if (!Array.isArray(group) || !group.every(isCond)) return null;
+	}
+	if (job.at !== undefined && typeof job.at !== "number") return null;
+	const fired = job.fired;
+	if (fired !== undefined) {
+		if (typeof fired !== "object" || fired === null || typeof fired.reason !== "string" || typeof fired.at !== "number") return null;
+	}
 	return job as Job;
 }
 
