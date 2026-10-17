@@ -137,7 +137,7 @@ describe("ConditionPicker", () => {
 	test("up from the first row wraps to the time row", () => {
 		const picker = pickerFor(theme, [goal("A"), goal("B")], labels, () => {});
 		picker.handleInput(UP);
-		expect(picker.render(80).find((line) => line.includes("▸"))).toContain("시간 조건만");
+		expect(picker.render(80).find((line) => line.includes("→"))).toContain("시간 조건만");
 	});
 
 	test("& and | on the time row are ignored", () => {
@@ -159,8 +159,8 @@ describe("ConditionPicker", () => {
 			expect(text).toContain("조건 A & B | C");
 			expect(text).toContain("[1]");
 			expect(text).toContain("[2]");
-			const cursorRow = lines.find((line) => line.includes("▸"));
-			expect(cursorRow).toContain("▸ [2] C");
+			const cursorRow = lines.find((line) => line.includes("→"));
+			expect(cursorRow).toContain("→ [2] C");
 		}
 		expect(picker.render(80).join("\n")).toContain(
 			"↑↓ 이동 · & 그리고 · | 또는 · Enter 확정 · ⌫ 되돌리기 · Esc 취소",
@@ -187,8 +187,11 @@ describe("ConditionPicker", () => {
 		const picker = pickerFor(theme, [], new Map(), () => {});
 		const lines = picker.render(80);
 		expect(lines.join("\n")).toContain("시간 조건만");
-		expect(lines.length).toBe(6);
-		const cursorRows = lines.filter((line) => line.includes("▸"));
+		expect(lines.length).toBe(10);
+		// framed like the host selectors: a full-width border above and below
+		expect(lines[0]).toBe("─".repeat(80));
+		expect(lines.at(-1)).toBe("─".repeat(80));
+		const cursorRows = lines.filter((line) => line.includes("→"));
 		expect(cursorRows.length).toBe(1);
 		expect(cursorRows[0]).toContain("시간 조건만");
 	});
@@ -199,8 +202,8 @@ describe("ConditionPicker", () => {
 		const picker = pickerFor(theme, many, manyLabels, () => {});
 		picker.handleInput(UP);
 		const lines = picker.render(80);
-		expect(lines[0]).toContain(" (13/13)");
-		expect(lines.find((line) => line.includes("▸"))).toContain("시간 조건만");
+		expect(lines.find((line) => line.includes("대기할 goal"))).toContain(" (13/13)");
+		expect(lines.find((line) => line.includes("→"))).toContain("시간 조건만");
 		expect(lines.filter((line) => /S\d/.test(line)).length).toBeLessThanOrEqual(10);
 	});
 });

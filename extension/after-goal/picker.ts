@@ -180,6 +180,7 @@ export class ConditionPicker {
 		const w = Math.max(0, width);
 		const dim = (text: string) => this.theme.fg("dim", text);
 		const header = this.theme.bold(this.theme.fg("accent", "대기할 goal"));
+		const border = this.theme.fg("border", "─".repeat(w));
 		const lines: string[] = [
 			this.rowCount() > WINDOW
 				? `${header}${dim(` (${this.cursor + 1}/${this.rowCount()})`)}`
@@ -191,11 +192,13 @@ export class ConditionPicker {
 		for (let i = start; i < Math.min(this.rowCount(), start + WINDOW); i++) {
 			const goal = this.goals[i];
 			const label = goal === undefined ? TIME_ROW : rowLabel(goal, this.labelFor(i));
-			const pointer = i === this.cursor ? this.theme.fg("accent", "▸ ") : "  ";
+			const pointer = i === this.cursor ? this.theme.fg("accent", "→ ") : "  ";
 			lines.push(`${pointer}${this.badges(i)}${label}`);
 		}
 		lines.push("");
 		lines.push(dim("↑↓ 이동 · & 그리고 · | 또는 · Enter 확정 · ⌫ 되돌리기 · Esc 취소"));
-		return lines.map((line) => padCells(fitCells(line, w), w));
+		// Framed like the host's own selectors (border, blank, 1-cell indent), since it takes the editor's place.
+		const framed = [border, "", ...lines.map((line) => (line === "" ? "" : ` ${line}`)), "", border];
+		return framed.map((line) => padCells(fitCells(line, w), w));
 	}
 }

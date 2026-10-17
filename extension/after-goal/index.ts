@@ -289,7 +289,6 @@ export function createAfterGoal(options: Options) {
 							onDone: (result: PickResult) => done(result),
 							onCancel: () => done(undefined),
 						}),
-					{ overlay: true, overlayOptions: { width: "90%", maxHeight: "80%", minWidth: 40, margin: 1 } },
 				);
 				if (picked === undefined) return;
 				groups = (picked as PickResult).groups;
