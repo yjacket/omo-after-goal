@@ -204,6 +204,20 @@ export function createAfterGoal(options: Options) {
 			} catch {}
 		}
 
+		// Nothing was delivered: the fired job goes back to its own session's slot, so that session's next start
+		// delivers it once. It never lands in another session or over a reservation made meanwhile.
+		function giveBack(current: Job, owner: string | undefined) {
+			try {
+				if (selfId === owner && job === null) {
+					job = current;
+					updateStatus();
+					save();
+				} else if (owner && selfId !== owner) {
+					saveStore(options.storeDir, owner, current);
+				}
+			} catch {}
+		}
+
 		async function flush() {
 			if (flushing) return;
 			flushing = true;
@@ -247,19 +261,16 @@ export function createAfterGoal(options: Options) {
 					}
 					notify(`터미널 입력 실패(${failure}), 확장 메시지로 보냅니다. 사용자 전용 스킬 게이트는 열리지 않을 수 있습니다`, "warning");
 				}
+				if (selfId !== owner) {
+					// The session switched during the Orca await: a fallback message would land in the new session.
+					giveBack(current, owner);
+					notify("세션이 바뀌어 예약을 원래 세션으로 되돌렸습니다", "warning");
+					return;
+				}
 				try {
 					pi.sendUserMessage(deliveryText(current, reason), { expandPromptTemplates: true });
 				} catch (error) {
-					// Nothing was delivered: the fired job goes back to its own session's slot, so that session's next start
-					// delivers it once. It never lands in another session or over a reservation made meanwhile.
-					try {
-						if (selfId === owner && job === null) {
-							job = current;
-							save();
-						} else if (owner && selfId !== owner) {
-							saveStore(options.storeDir, owner, current);
-						}
-					} catch {}
+					giveBack(current, owner);
 					notify(`예약 전달 실패: ${errorText(error)}`, "warning");
 					return;
 				}

@@ -128,10 +128,9 @@ export class ConditionPicker {
 	}
 
 	private confirm(): void {
-		// The last pick closed its group with `|`: Enter on that same row only finishes.
-		// Re-adding it would read `(A & B) | B`, which is never what the user meant.
-		const last = this.picks.at(-1);
-		const justClosed = last !== undefined && last.op === "|" && last.index === this.cursor;
+		// `|` just closed a group and the cursor sits on a goal of that group: Enter only finishes.
+		// Re-adding it would read `(A & B) | A`, which is never what the user meant.
+		const justClosed = this.openGroup().length === 0 && (this.derived().at(-1)?.includes(this.cursor) ?? false);
 		if (this.cursor < this.goals.length && !this.openGroup().includes(this.cursor) && !justClosed) {
 			this.picks.push({ index: this.cursor });
 		}

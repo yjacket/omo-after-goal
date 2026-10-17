@@ -808,6 +808,7 @@ describe("delivery error boundaries", () => {
 		const stored = loadStore(env.storeDir, SELF).job!;
 		expect(stored.fired?.reason).toBe("qa-a goal 완료");
 		expect(host.notifies.some((n: { message: string }) => n.message === "예약 전달 실패: sendUserMessage boom")).toBe(true);
+		expect(status(host)).toBe("⏰ 실행 대기");
 
 		// a later start with a working sendUserMessage delivers the stored fired job exactly once
 		host.pi.sendUserMessage = mock((text: string) => {
@@ -899,6 +900,44 @@ describe("delivery error boundaries", () => {
 			expect(back.prompt).toBe("/skill OLD");
 			expect(back.fired?.reason).toBe("qa-a goal 완료");
 			expect(host.notifies.some((n: { message: string }) => n.message === "예약 실행: qa-a goal 완료")).toBe(false);
+		} finally {
+			if (previous === undefined) delete process.env.ORCA_PANE_KEY;
+			else process.env.ORCA_PANE_KEY = previous;
+		}
+	});
+
+	test("(b2e) a session switch during a failing Orca send never sends the fallback into the new session", async () => {
+		const env = makeEnv();
+		const a = writeSession(env, { slug: "--qa-a--", sessionId: "s-a", cwd: "C:/work/qa-a", open: 1 });
+		const host = newHost({ editorText: "/skill OLD" });
+		await start(host, env);
+
+		const previous = process.env.ORCA_PANE_KEY;
+		process.env.ORCA_PANE_KEY = "7:3";
+		try {
+			let release = () => {};
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			host.pi.exec = mock(async (_cmd: string, args: string[]) => {
+				if (args[1] === "list") return { code: 0, stdout: JSON.stringify({ result: { terminals: [{ tabId: 7, leafId: 3, handle: "h-1" }] } }) };
+				await gate;
+				return { code: 1, stderr: "terminal send 실패" };
+			});
+			await schedule(host, ["\r"], "/skill OLD");
+			complete(env, a.goalFile);
+			await tick(2);
+			await settle(5);
+
+			await fire(host, "session_start", { ...host.ctx, sessionManager: { getSessionId: () => "other" } });
+			release();
+			await settle();
+
+			expect(host.sent).toHaveLength(0);
+			expect(loadStore(env.storeDir, "other").job).toBeNull();
+			const back = loadStore(env.storeDir, SELF).job!;
+			expect(back.prompt).toBe("/skill OLD");
+			expect(back.fired?.reason).toBe("qa-a goal 완료");
 		} finally {
 			if (previous === undefined) delete process.env.ORCA_PANE_KEY;
 			else process.env.ORCA_PANE_KEY = previous;
