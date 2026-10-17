@@ -10,7 +10,7 @@
 	{"send": "|"},
 	{"waitNew": "| ▢"},
 	{"send": "\u001b[B"},
-	{"waitNew": "▸ qa-b"},
+	{"waitNew": "→ qa-b"},
 	{"send": "\r"},
 
 	{"waitNew": "시간"},

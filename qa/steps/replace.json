@@ -29,7 +29,7 @@
 
 	{"waitNew": "대기할 goal"},
 	{"send": "\u001b[B"},
-	{"waitNew": "▸ qa-b"},
+	{"waitNew": "→ qa-b"},
 	{"send": "\r"},
 
 	{"waitNew": "시간"},

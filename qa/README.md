@@ -62,7 +62,7 @@ A `waitNew`/`wait` always precedes the next key. The guards the step files use:
 | `/after now`, `/after cancel` | the argument completion (`예약을 지금 실행`, `예약 취소`), then `\r\r`: with an argument completion open the editor's first Enter only applies it, the second submits (a user presses Enter twice too) |
 | `Enter` on the picker / a select | the next dialog title (`대기할 goal`, `시간`, `실행할 프롬프트`, `예약`, `예약 바꾸기`, `예약 취소`) |
 | `&` / `|` | the updated expression line (`& ▢` / `| ▢`) |
-| an arrow | the cursor row (`▸ qa-b`) |
+| an arrow | the cursor row (`→ qa-b`) |
 | `Enter` on a confirm selector | the confirm selector's own bottom hint (`esc/ctrl+c cancel`) before the dialog shot |
 | `Enter` on the prompt editor | the editor's bottom hint (`external editor`) before the shot |
 | `exec` (a fixture command) | the footer/delivery text the fixture causes (`qa-a ✓`, `qa-a 꺼짐`, `Follow-up: <prompt>`) |

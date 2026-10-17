@@ -162,8 +162,16 @@ async function ensureBrowser() {
 		{ stdout: "ignore", stderr: "ignore" });
 	console.log(`chrome pid ${chrome.pid}`);
 	const portFile = join(profile, "DevToolsActivePort");
-	await until(() => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n").length >= 2, 30000, "DevToolsActivePort");
-	const [port, path] = readFileSync(portFile, "utf8").trim().split("\n");
+	// Chrome replaces the file while writing it, so a read can briefly fail with ENOENT after existsSync said yes.
+	const readPort = () => {
+		try {
+			return readFileSync(portFile, "utf8");
+		} catch {
+			return "";
+		}
+	};
+	await until(() => readPort().split("\n").length >= 2, 30000, "DevToolsActivePort");
+	const [port, path] = readPort().trim().split("\n");
 	browserWs = new WebSocket(`ws://127.0.0.1:${port}${path}`);
 	await new Promise((res, rej) => { browserWs.onopen = res; browserWs.onerror = () => rej(new Fail("CDP websocket error")); });
 	browserWs.onmessage = (ev) => {
