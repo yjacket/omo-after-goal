@@ -58,13 +58,17 @@ A `waitNew`/`wait` always precedes the next key. The guards the step files use:
 | input | waited for before sending it |
 | --- | --- |
 | the first key | `[Extensions]` (extension loaded) and `Welcome to OmO` (the empty-session splash, drawn in the same frame as the composer) |
-| `/after`, `/after now`, `/after cancel`, `/aft` | the typed command's completion text (`after`, `now`, `cancel`, `/after`) |
+| `/after`, `/aft` | the typed command's completion text (`after`, `/after`) |
+| `/after now`, `/after cancel` | the argument completion (`예약을 지금 실행`, `예약 취소`), then `\r\r`: with an argument completion open the editor's first Enter only applies it, the second submits (a user presses Enter twice too) |
 | `Enter` on the picker / a select | the next dialog title (`대기할 goal`, `시간`, `실행할 프롬프트`, `예약`, `예약 바꾸기`, `예약 취소`) |
 | `&` / `|` | the updated expression line (`& ▢` / `| ▢`) |
 | an arrow | the cursor row (`▸ qa-b`) |
 | `Enter` on a confirm selector | the confirm selector's own bottom hint (`esc/ctrl+c cancel`) before the dialog shot |
 | `Enter` on the prompt editor | the editor's bottom hint (`external editor`) before the shot |
-| `exec` (a fixture command) | the footer/delivery text the fixture causes (`qa-a ✓`, `qa-a 꺼짐`, the delivered prompt) |
+| `exec` (a fixture command) | the footer/delivery text the fixture causes (`qa-a ✓`, `qa-a 꺼짐`, `Follow-up: <prompt>`) |
+| `Esc` on the prompt editor | the main editor's `❯` coming back |
+
+A delivery is observed as the notice `예약 실행: <reason>` plus the queued line `Follow-up: <prompt>`. The isolated agent dir has no model, so omo queues the delivered prompt instead of running it, and the queue preview shows only its first line; the full delivered text (`<prompt>\n\n[after-goal] 예약 실행 사유: <reason>`) is covered by `test/index.test.ts`.
 
 Fixed `idle` waits are never used to wait for a fixture-driven change.
 
@@ -103,12 +107,12 @@ Fixtures: `create <agentDir> a --open 2 --total 3 --seconds 600` and `create <ag
 | --- | --- | --- |
 | (all) | | every key is preceded by its guard from the table above; a guard that never appears fails the run |
 | `smoke.json` | `smoke` | `/after` answers: the goal picker title `대기할 goal`, or `저장된 세션에서만` in an agent dir without a saved session |
-| `and.json` | `armed`, `one-done`, `fired` | picker `&` on qa-a + Enter on qa-b and an empty time arms one AND group; footer `⏰ qa-a 남은 2 & qa-b 남은 1`; finishing qa-a alone shows `qa-a ✓` and delivers nothing; finishing qa-b delivers the prompt with reason `qa-a goal 완료, qa-b goal 완료` |
-| `or.json` | `armed`, `fired` | `|` on qa-a + Enter on qa-b arms two OR groups; footer `⏰ qa-a 남은 2 | qa-b 남은 1`; finishing qa-b alone delivers with reason `qa-b goal 완료` |
-| `now.json` | `armed`, `fired` | a one-goal reservation shows `qa-a 남은 2`; `/after now` delivers at once with reason `강제 실행` and clears the footer |
-| `replace.json` | `armed`, `confirm-replace`, `prefilled`, `kept` | a second `/after` asks `예약 바꾸기`; the prompt editor is prefilled with the old prompt; Esc keeps the old reservation (`qa-a 남은 2`) |
-| `cancel.json` | `armed`, `confirm-cancel`, `cancelled` | `/after cancel` asks `예약 취소`, confirms, clears the footer (`⏰` gone) |
-| `dead.json` | `armed`, `dead`, `fired` | OR of qa-a and qa-b; killing qa-a shows `qa-a 꺼짐` and delivers nothing; finishing qa-b then delivers with reason `qa-b goal 완료` |
+| `and.json` | `armed`, `one-done`, `fired` | picker `&` on qa-a + Enter on qa-b and an empty time arms one AND group; footer `⏰ qa-a 남은 2 & qa-b 남은 1`; finishing qa-a alone shows `qa-a ✓` and delivers nothing; finishing qa-b delivers: `예약 실행: qa-a goal 완료, qa-b goal 완료`, `Follow-up: QA-PROMPT-ALPHA`, `⏰` gone |
+| `or.json` | `armed`, `fired` | `|` on qa-a + Enter on qa-b arms two OR groups; footer `⏰ qa-a 남은 2 | qa-b 남은 1`; finishing qa-b alone delivers: `예약 실행: qa-b goal 완료`, `Follow-up: QA-PROMPT-OR`, `⏰` gone |
+| `now.json` | `armed`, `fired` | a one-goal reservation shows `qa-a 남은 2`; `/after now` delivers at once: `예약 실행: 강제 실행`, `Follow-up: QA-PROMPT-NOW`, `⏰` gone |
+| `replace.json` | `armed`, `confirm-replace`, `prefilled`, `kept` | a second `/after` asks `예약 바꾸기`; the prompt editor is prefilled with the old prompt; Esc keeps the old reservation (`⏰ qa-a 남은 2`, no `qa-b`) |
+| `cancel.json` | `armed`, `confirm-cancel`, `cancelled` | `/after cancel` asks `예약 취소` naming `qa-a goal 종료`, confirms, clears the footer (`⏰` gone) |
+| `dead.json` | `armed`, `dead`, `fired` | OR of qa-a and qa-b; killing qa-a shows `qa-a 꺼짐` and delivers nothing; finishing qa-b then delivers: `예약 실행: qa-b goal 완료`, `Follow-up: QA-PROMPT-DEAD` |
 | `autocomplete.json` | `autocomplete` | typing `/aft` shows one `/after` completion line (used after the package install) |
 
 ## Example

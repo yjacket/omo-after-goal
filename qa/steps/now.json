@@ -23,10 +23,11 @@
 	{"expect": "qa-a 남은 2"},
 
 	{"send": "/after now"},
-	{"waitNew": "now"},
-	{"send": "\r"},
-	{"waitNew": "강제 실행"},
+	{"waitNew": "예약을 지금 실행"},
+	{"send": "\r\r"},
+	{"waitNew": "Follow-up: QA-PROMPT-NOW"},
 	{"shot": "fired"},
-	{"expect": "예약 실행 사유: 강제 실행"},
+	{"expect": "예약 실행: 강제 실행"},
+	{"expect": "Follow-up: QA-PROMPT-NOW"},
 	{"expectNot": "⏰"}
 ]

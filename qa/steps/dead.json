@@ -30,10 +30,12 @@
 	{"exec": ["bun", "qa/fake-sessions.mjs", "kill", "{agentDir}", "a"]},
 	{"waitNew": "qa-a 꺼짐"},
 	{"shot": "dead"},
-	{"expectNot": "예약 실행 사유"},
+	{"expectNot": "예약 실행:"},
 
 	{"exec": ["bun", "qa/fake-sessions.mjs", "finish", "{agentDir}", "b"]},
-	{"waitNew": "예약 실행 사유"},
+	{"waitNew": "Follow-up: QA-PROMPT-DEAD"},
 	{"shot": "fired"},
-	{"expect": "예약 실행 사유: qa-b goal 완료"}
+	{"expect": "예약 실행: qa-b goal 완료"},
+	{"expect": "Follow-up: QA-PROMPT-DEAD"},
+	{"expectNot": "⏰"}
 ]

@@ -41,7 +41,8 @@
 	{"expect": "QA-PROMPT-REPLACE-OLD"},
 
 	{"send": "\u001b"},
-	{"waitNew": "qa-a 남은 2"},
+	{"waitNew": "❯"},
 	{"shot": "kept"},
-	{"expect": "qa-a 남은 2"}
+	{"expect": "⏰ qa-a 남은 2"},
+	{"expectNot": "qa-b 남은"}
 ]
