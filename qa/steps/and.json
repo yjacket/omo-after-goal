@@ -30,10 +30,10 @@
 	{"exec": ["bun", "qa/fake-sessions.mjs", "finish", "{agentDir}", "a"]},
 	{"waitNew": "qa-a ✓"},
 	{"shot": "one-done"},
-	{"expectNot": "QA-PROMPT-ALPHA"},
+	{"expectNot": "예약 실행 사유"},
 
 	{"exec": ["bun", "qa/fake-sessions.mjs", "finish", "{agentDir}", "b"]},
-	{"waitNew": "QA-PROMPT-ALPHA"},
+	{"waitNew": "예약 실행 사유"},
 	{"shot": "fired"},
 	{"expect": "예약 실행 사유: qa-a goal 완료, qa-b goal 완료"}
 ]

@@ -28,7 +28,7 @@
 	{"expect": "qa-a 남은 2 | qa-b 남은 1"},
 
 	{"exec": ["bun", "qa/fake-sessions.mjs", "finish", "{agentDir}", "b"]},
-	{"waitNew": "QA-PROMPT-OR"},
+	{"waitNew": "예약 실행 사유"},
 	{"shot": "fired"},
 	{"expect": "예약 실행 사유: qa-b goal 완료"}
 ]
