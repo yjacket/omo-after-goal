@@ -24,7 +24,7 @@ export type Job = {
 export type StoreFile = { version: 2; job: Job | null };
 
 /** Open = pending + in_progress tasks of a session's newest todo list. */
-export type TodoSummary = { total: number; open: number; now?: string };
+export type TodoSummary = { total: number; open: number };
 
 export type SessionSnapshot = { alive: boolean; todo?: TodoSummary };
 
@@ -42,14 +42,12 @@ export type Paint = {
 	ok(text: string): string;
 	warn(text: string): string;
 	dim(text: string): string;
-	group(index: number, text: string): string;
 };
 
 export const plainPaint: Paint = {
 	ok: (text) => text,
 	warn: (text) => text,
 	dim: (text) => text,
-	group: (_index, text) => text,
 };
 
 export type PickResult = { groups: RunningGoal[][] };
