@@ -1,7 +1,10 @@
 [
-	{"wait": "[Extensions]"},
-	{"wait": "Welcome to OmO"},
-	{"send": "/aft"},
-	{"waitNew": "/after"},
-	{"shot": "autocomplete"}
+	{"wait":"[Extensions]"},
+	{"wait":"(auto)"},
+	{"send":"\u000f"},
+	{"waitNew":"[Extensions]"},
+	{"shot":"resources"},
+	{"send":"/aft"},
+	{"waitNew":"다른 세션 goal 종료나 지정 시간에 프롬프트 실행"},
+	{"shot":"autocomplete"}
 ]

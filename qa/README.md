@@ -113,7 +113,7 @@ Fixtures: `create <agentDir> a --open 2 --total 3 --seconds 600` and `create <ag
 | `replace.json` | `armed`, `confirm-replace`, `prefilled`, `kept` | a second `/after` asks `예약 바꾸기`; the prompt editor is prefilled with the old prompt; Esc keeps the old reservation (`⏰ qa-a 남은 2`, no `qa-b`) |
 | `cancel.json` | `armed`, `confirm-cancel`, `cancelled` | `/after cancel` asks `예약 취소` naming `qa-a goal 종료`, confirms, clears the footer (`⏰` gone) |
 | `dead.json` | `armed`, `dead`, `fired` | OR of qa-a and qa-b; killing qa-a shows `qa-a 꺼짐` and delivers nothing; finishing qa-b then delivers: `예약 실행: qa-b goal 완료`, `Follow-up: QA-PROMPT-DEAD` |
-| `autocomplete.json` | `autocomplete` | typing `/aft` shows one `/after` completion line (used after the package install) |
+| `autocomplete.json` | `resources`, `autocomplete` | run with `--keep-extensions` against the real install from an empty cwd: ctrl+o lists `after-goal` once among the loaded extensions, and typing `/aft` shows one `/after` completion line |
 
 ## Example
 
