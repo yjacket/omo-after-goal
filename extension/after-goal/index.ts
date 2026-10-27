@@ -51,7 +51,8 @@ export function createAfterGoal(options: Options) {
 		let pollTimer: ReturnType<typeof setInterval> | undefined;
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 		let flushing = false;
-		let heldNoticeShown = false;
+		// The wait notice already shown for this fired job, so each reason is told once.
+		let heldNotice: string | undefined;
 
 		function save() {
 			if (!selfId) return;
@@ -180,14 +181,41 @@ export function createAfterGoal(options: Options) {
 			return sent.code === 0 ? undefined : `orca terminal send 실패: ${sent.stderr || sent.stdout}`;
 		}
 
+		function waitNotice(text: string) {
+			if (heldNotice !== text) ctx.ui?.notify?.(text, "info");
+			heldNotice = text;
+		}
+
+		// omo holds every extension-started turn after the user's Stop (5.1.44+) and in a session reopened after it
+		// died mid-run (5.1.48+, senpi#4206) until terminal input or /resume. A message sent then waits unseen in
+		// the engine, so the fired job keeps its slot (and survives a restart) until the hold is gone.
+		function holdText(): string | undefined {
+			try {
+				const holds = ctx.getPauseState?.()?.holds;
+				if (!Array.isArray(holds)) return undefined;
+				const live = holds.filter((hold: any) => hold?.kind === "session_hold" || hold?.kind === "inherited_hold");
+				if (live.length === 0) return undefined;
+				const interruptedOnly = live.every((hold: any) => hold.kind === "session_hold" && hold.key === "interrupted-run");
+				return interruptedOnly
+					? "예약 작업 대기 중: 중단됐던 세션이라 재개하면 실행합니다"
+					: "예약 작업 대기 중: 세션이 멈춰 있어 재개하면 실행합니다";
+			} catch {
+				return undefined;
+			}
+		}
+
 		function canDeliver(): boolean {
 			if (!ctx) return false;
 			if (typeof ctx.isIdle === "function" && !ctx.isIdle()) return false;
 			if (typeof ctx.hasPendingMessages === "function" && ctx.hasPendingMessages()) return false;
+			const hold = holdText();
+			if (hold) {
+				waitNotice(hold);
+				return false;
+			}
 			const draft = typeof ctx.ui?.getEditorText === "function" ? ctx.ui.getEditorText() : "";
 			if (draft && draft.trim() !== "") {
-				if (!heldNoticeShown) ctx.ui?.notify?.("예약 작업 대기 중: 입력창이 비면 실행합니다", "info");
-				heldNoticeShown = true;
+				waitNotice("예약 작업 대기 중: 입력창이 비면 실행합니다");
 				return false;
 			}
 			return true;
@@ -233,7 +261,7 @@ export function createAfterGoal(options: Options) {
 					}
 					return;
 				}
-				heldNoticeShown = false;
+				heldNotice = undefined;
 				const reason = current.fired.reason;
 				// session_start may swap selfId and job during the Orca await below
 				const owner = selfId;

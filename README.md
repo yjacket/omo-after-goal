@@ -58,7 +58,7 @@ Remaining work is read from the todo tool's structured records in the awaited se
 
 The footer is refreshed by a 3-second poll and is written only when its text changed.
 
-Delivery is unchanged: a prompt starting with `/` is typed into the Orca terminal, anything else is sent as a user message. Nothing is delivered while the session is busy or its prompt editor is not empty; the reservation waits, and a waiting delivery survives a restart.
+Delivery is unchanged: a prompt starting with `/` is typed into the Orca terminal, anything else is sent as a user message. Nothing is delivered while the session is busy, its prompt editor is not empty, or omo holds new turns (after Esc/Stop, or in a session reopened after it died mid-run, until terminal input or `/resume`); the reservation waits with one notice, and a waiting delivery survives a restart.
 
 ## Limits
 
