@@ -116,6 +116,7 @@ function makeHost(config: HostConfig = {}) {
 		picker: undefined as any,
 		customOptions: undefined as unknown,
 		isIdle: config.isIdle ?? true,
+		holds: [] as { kind: string; key: string }[],
 		draft: config.draft ?? "",
 		setStatusThrows: config.setStatusThrows ?? false,
 		editorText: config.editorText === undefined ? "예약 프롬프트" : config.editorText,
@@ -174,6 +175,7 @@ function makeHost(config: HostConfig = {}) {
 		mode: "tui",
 		isIdle: () => host.isIdle,
 		hasPendingMessages: () => false,
+		getPauseState: () => ({ pauseSeq: 0, holds: host.holds }),
 		sessionManager: { getSessionId: () => SELF },
 		ui: host.ui,
 	};
@@ -723,6 +725,44 @@ describe("held delivery", () => {
 		expect(host.sent[0]).toContain("예약 실행 사유: qa-a goal 완료");
 		expect(loadStore(env.storeDir, SELF).job).toBeNull();
 		await tick(2);
+		expect(host.sent).toHaveLength(1);
+	});
+
+	for (const [label, holds, notice] of [
+		["the interrupted-run hold", [{ kind: "session_hold", key: "interrupted-run" }], "예약 작업 대기 중: 중단됐던 세션이라 재개하면 실행합니다"],
+		["a Stop hold", [{ kind: "session_hold", key: "stop" }], "예약 작업 대기 중: 세션이 멈춰 있어 재개하면 실행합니다"],
+		["Stop over the interrupted-run hold", [{ kind: "session_hold", key: "interrupted-run" }, { kind: "session_hold", key: "stop" }], "예약 작업 대기 중: 세션이 멈춰 있어 재개하면 실행합니다"],
+	] as const) {
+		test(`(k3) a fired job waits in the store under ${label}, tells once, then delivers once after resume`, async () => {
+			const env = makeEnv();
+			const host = newHost({ editorText: "재개 뒤 프롬프트" });
+			host.holds = holds.map((hold) => ({ ...hold }));
+			const id = await held(env, host);
+
+			expect(host.sent).toHaveLength(0);
+			expect(loadStore(env.storeDir, SELF).job!.id).toBe(id);
+			expect(loadStore(env.storeDir, SELF).job!.fired?.reason).toBe("qa-a goal 완료");
+			await tick(3);
+			expect(host.sent).toHaveLength(0);
+			expect(host.notifies.filter((n: { message: string }) => n.message === notice)).toHaveLength(1);
+
+			host.holds = [];
+			await tick(1);
+			await settle();
+			expect(host.sent).toHaveLength(1);
+			expect(host.sent[0]).toContain("재개 뒤 프롬프트");
+			expect(loadStore(env.storeDir, SELF).job).toBeNull();
+			await tick(2);
+			expect(host.sent).toHaveLength(1);
+		});
+	}
+
+	test("(k4) a run fence alone does not hold delivery", async () => {
+		const env = makeEnv();
+		const host = newHost({ editorText: "펜스 프롬프트" });
+		host.holds = [{ kind: "run_fence", key: "r" }];
+		await held(env, host);
+		await settle();
 		expect(host.sent).toHaveLength(1);
 	});
 
