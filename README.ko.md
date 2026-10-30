@@ -7,11 +7,12 @@
 ## 설치
 
 ```sh
-omo install C:/dev/omo/omo-after-goal
 omo install git:github.com/yjacket/omo-after-goal
 ```
 
-첫 번째는 로컬 클론을 설치하므로, 고친 내용이 다음 `/reload`에 바로 반영됩니다. omo가 패키지를 `<agentDir>/settings.json`의 `packages`에 등록합니다. 실행 중인 세션에서 `/reload`를 입력하세요.
+omo가 패키지를 `<agentDir>/settings.json`의 `packages`에 등록합니다. 실행 중인 세션에서 `/reload`를 입력하거나 새 세션을 여세요.
+
+업데이트는 `omo update --extensions`(git으로 설치한 확장 전체) 또는 `omo update --extension git:github.com/yjacket/omo-after-goal`(이 확장만)을 실행한 뒤 `/reload`를 입력합니다.
 
 `<agentDir>/extensions/after-goal.ts`에 예전 복사본이 남아 있으면 지우거나 옮기세요. 남겨 두면 확장이 두 번 로드됩니다. 그 예전 파일이 저장한 예약은 다음 시작 때 옮겨집니다.
 
@@ -45,7 +46,7 @@ omo install git:github.com/yjacket/omo-after-goal
 예약이 있는 동안 `omo-after-goal` 키로 푸터 상태 하나가 나타납니다:
 
 ```
-⏰ omo-health 남은 4 & omo-desk 남은 2 | 23:30
+⏰ omo-health 남은 4 & omo-inbox 남은 2 | 23:30
 ```
 
 기다리는 goal마다 그 세션의 프로젝트 이름과, 그 세션의 todo 중 아직 열려 있는 개수가 붙습니다. goal이 끝났으면 개수 자리에 `✓`, 세션이 더 이상 실행 중이 아니면 `꺼짐`이 오고, 시간 조건이 있으면 `| HH:MM` 부분이 붙습니다. 조건은 충족됐지만 프롬프트가 아직 전달 대기 중인 예약은 `⏰ 실행 대기`로 표시됩니다.
@@ -71,8 +72,14 @@ omo install git:github.com/yjacket/omo-after-goal
 ## 제거
 
 ```sh
-omo remove C:/dev/omo/omo-after-goal
 omo remove git:github.com/yjacket/omo-after-goal
 ```
 
-첫 번째는 로컬 클론 설치, 두 번째는 git 설치를 제거합니다. 그다음 `/reload`를 입력하세요.
+그다음 `/reload`를 입력하세요.
+
+## 개발
+
+- git worktree에서 새 브랜치로 작업하고 PR로 반영합니다. `master`에는 직접 push할 수 없고, PR은 `test` 체크(windows-latest에서 `bun run test`)가 통과해야 머지됩니다.
+- 로컬 확인: `bun install` 후 `bun test`, `bun run typecheck`, `bun qa/check-headings.mjs`(README.md와 README.ko.md의 제목 구성이 같아야 합니다).
+- 작업 트리를 omo에서 써 보려면 `omo install <클론 경로>`로 설치하고, 확인이 끝나면 `omo install git:github.com/yjacket/omo-after-goal`로 되돌립니다. 개발 확인 용도로만 씁니다.
+- 실제 테스트는 진짜 `~/.omo`를 건드리지 않습니다. HOME, USERPROFILE, APPDATA, LOCALAPPDATA와 `OMO_CODING_AGENT_DIR`/`SENPI_CODING_AGENT_DIR`를 임시 폴더로 지정하세요. [qa/README.md](qa/README.md)의 TUI 하네스는 임시 agent dir과 가짜 세션으로 실행됩니다.
