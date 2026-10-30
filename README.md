@@ -7,11 +7,12 @@ Reserve one prompt in this session and have it run when other sessions' goals en
 ## Install
 
 ```sh
-omo install C:/dev/omo/omo-after-goal
 omo install git:github.com/yjacket/omo-after-goal
 ```
 
-The first form installs a local clone, so your edits go live on the next `/reload`. omo adds the package to `packages` in `<agentDir>/settings.json`. Type `/reload` in running sessions.
+omo adds the package to `packages` in `<agentDir>/settings.json`. Type `/reload` in running sessions, or start a new one.
+
+To update, run `omo update --extensions` (all git-installed extensions) or `omo update --extension git:github.com/yjacket/omo-after-goal` (this one only), then `/reload`.
 
 If an older copy of this extension still sits at `<agentDir>/extensions/after-goal.ts`, delete or move it, or the extension loads twice. A reservation stored by that old file is migrated on the next start.
 
@@ -45,7 +46,7 @@ Then the prompt editor opens, a summary is shown, and you confirm.
 While a reservation exists, one footer status appears under the key `omo-after-goal`:
 
 ```
-⏰ omo-health 남은 4 & omo-desk 남은 2 | 23:30
+⏰ omo-health 남은 4 & omo-inbox 남은 2 | 23:30
 ```
 
 Each awaited goal is named by its session's project followed by how many of that session's todos are still open. `✓` replaces the count once the goal has ended, `꺼짐` replaces it when the session is no longer running, and a time condition adds the `| HH:MM` part. A reservation whose condition was met but whose prompt is still waiting to be delivered shows `⏰ 실행 대기`.
@@ -71,8 +72,14 @@ Delivery is unchanged: a prompt starting with `/` is typed into the Orca termina
 ## Uninstall
 
 ```sh
-omo remove C:/dev/omo/omo-after-goal
 omo remove git:github.com/yjacket/omo-after-goal
 ```
 
-The first form removes a local clone install, the second a git install. Then type `/reload`.
+Then type `/reload`.
+
+## Development
+
+- Work in a git worktree on a new branch and land changes through a pull request. `master` accepts no direct pushes; a PR merges only when its `test` check passes (`bun run test` on windows-latest).
+- Run the checks locally with `bun install`, then `bun test`, `bun run typecheck` and `bun qa/check-headings.mjs` (README.md and README.ko.md must keep the same headings).
+- To try a working tree in omo, `omo install <path-to-your-clone>` loads it until you switch back with `omo install git:github.com/yjacket/omo-after-goal`. Use this for development checks only.
+- Live tests never touch the real `~/.omo`. Point HOME, USERPROFILE, APPDATA, LOCALAPPDATA and `OMO_CODING_AGENT_DIR`/`SENPI_CODING_AGENT_DIR` at a temp dir. The TUI harness in [qa/README.md](qa/README.md) runs in a temp agent dir with fake sessions.
